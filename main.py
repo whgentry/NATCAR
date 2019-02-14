@@ -312,7 +312,7 @@ while(True):
     chA = timA.channel(1, Timer.PWM, pin=Pin("P7"), pulse_width=round(pwA)) #setting up the channel for oscilloscope
 
 
-
+# test commit
 
 #if (motor == 1):# and command_str[0] != "x"):
         # Generate a 100Hz square wave on TIM2
