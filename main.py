@@ -34,8 +34,8 @@ red_led = LED(1)
 INA = Pin("P2", Pin.OUT_PP)
 INB = Pin("P3", Pin.OUT_PP)
 ENA = Pin("P4", Pin.OUT_PP)
-ENB = Pin("P5", Pin.OUT_PP) # <- possibly switch to P8
-CS  = Pin("P8", Pin.IN)     # <- possibly switch to P6 for ADC
+ENB = Pin("P8", Pin.OUT_PP) 
+CS  = Pin("P6", Pin.IN)     
 CS_DIS = Pin("P9", Pin.OUT_PP)
 # Configure motor for drive forward, INB and INA are flipped for foward and reverse
 INA.low() # or p.value(1) to make the pin high (3.3V)
@@ -114,7 +114,7 @@ while(True):
                 enable = 0
                 INA.low()
                 INB.low()
-                break;
+                break
             if (current_char != -1):
                 command_str += chr(current_char)
             current_char = uart.readchar()
@@ -308,9 +308,7 @@ while(True):
     # Generate a 300Hz square wave on TIM4 and with pw as pulse_width
     #sec = .0011
     pwA = sec*sourcefA/(prescalerA+1) #This is the conversion for pulsewidth
-    chB = timB.channel(1, Timer.PWM, pin=Pin("P6"), pulse_width_percent=dutycyclePW)
-    # possible switch pin with P5 so we can use DAC ^
-    #chB = timB.channel(4, Timer.PWM, pin=Pin("P5"), pulse_width_percent=dutycyclePW)
+    chB = timB.channel(4, Timer.PWM, pin=Pin("P5"), pulse_width_percent=dutycyclePW)
     chA = timA.channel(1, Timer.PWM, pin=Pin("P7"), pulse_width=round(pwA)) #setting up the channel for oscilloscope
 
 
