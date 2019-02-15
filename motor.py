@@ -4,7 +4,7 @@
 import sensor, image, math, time, pyb
 from pyb import Pin, Timer, UART, LED, ADC
 
-# PWM
+# Class for DC Motor
 class DCMotor:
     def __init__(self, tim_num, channel, frequency, pin):
         self.tim = Timer(tim_num, freq=frequency)
@@ -16,6 +16,8 @@ class DCMotor:
         self.INB = Pin(in_b, Pin.OUT_PP)
         self.ENA = Pin(en_a, Pin.OUT_PP)
         self.ENB = Pin(en_b, Pin.OUT_PP)
+        self.ENA.high()
+        self.ENB.high()
 
     def set_current_sense(self, cs, cs_dis):
         self.CS_DIS = Pin(cs_dis, Pin.OUT_PP)
@@ -43,3 +45,28 @@ class DCMotor:
     def brake_vcc(self):
         self.INA.high()
         self.INB.high()
+
+
+# Class for Servo Motor
+class ServoMotor:
+    def __init__(self, tim_num, channel, frequency, pin):
+        self.tim = Timer(tim_num, freq=frequency)
+        self.pin = Pin(pin)
+        self.channel = channel
+        self.scale = self.tim.source_freq()/(self.tim.prescaler()+1)
+
+    def set_range(self, max_pw, min_pw):
+        self.max_pw = max_pw
+        self.min_pw = max_pw
+        self.mid_pw = (max_pw + min_pw) / 2
+
+    def saturate_pw(self, sec):
+        if(sec > max_pw):
+            sec = max_pw
+        elif(sec < min_pw):
+            sec = min_pw
+        return sec
+
+    def set_pulse_width(self, sec):
+        sec = self.saturate_pw(sec)
+        timA.channel(self.channel, Timer.PWM, pin=self.pin, pulse_width=round(sec * scale))

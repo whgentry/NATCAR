@@ -5,7 +5,7 @@
 
 import sensor, image, math, time, pyb, motor
 from pyb import Pin, Timer, UART, LED, ADC
-from motor import DCMotor
+from motor import DCMotor, ServoMotor
 
 ##### Global Variables and Initialization #####
 ## uart
@@ -30,17 +30,22 @@ pyb.delay(200)
 print(uart.readline())
 pyb.delay(200)
 
-## motor control
+## DC motor control
 dc_motor = DCMotor(tim_num=2, channel=1, frequency=100, pin="P6")
 dc_motor.set_control(in_a="P2", in_b="P3", en_a="P4", en_b="P5")
 
+## Servo motor control
+servo_motor = ServoMotor(tim_num=4, channel=1, frequency=300, pin="P7")
+servo_motor.set_range(max_pw=0.00187, min_pw=0.0011)
+
+
 ## PWM Control
-timA = Timer(4, freq=300) # Frequency in Hz
+#timA = Timer(4, freq=300) # Frequency in Hz
 #timB = Timer(2, freq=100) # DC motor
 sec = 0.0015 #initialize seconds value goes from 0.0011 to 0.0019
 dutycyclePW = 0
-sourcefA = Timer.source_freq(timA)#declaration of source clock/prescaler values
-prescalerA = Timer.prescaler(timA)
+#sourcefA = Timer.source_freq(timA)#declaration of source clock/prescaler values
+#prescalerA = Timer.prescaler(timA)
 enable = 0
 
 ## Camera Control
@@ -282,14 +287,14 @@ while(True):
         #dutycyclePW =  max_pwm  - ((abs(dist2center)/center) * (max_pwm - min_pwm))
         dutycyclePW =  max_pwm  - ((abs(angle2)/60) * (max_pwm - min_pwm)) #DC
 
-        if(sec > 0.00187):
-            sec = 0.00187
-        elif(sec < 0.0011):
-            sec = 0.0011
+        #if(sec > 0.00187):
+            #sec = 0.00187
+        #elif(sec < 0.0011):
+            #sec = 0.0011
 
     # Generate a 300Hz square wave on TIM4 and with pw as pulse_width
     #sec = .0011
-    pwA = sec*sourcefA/(prescalerA+1) #This is the conversion for pulsewidth
+    #pwA = sec*sourcefA/(prescalerA+1) #This is the conversion for pulsewidth
     #chB = timB.channel(4, Timer.PWM, pin=Pin("P5"), pulse_width_percent=dutycyclePW)
     dc_motor.set_duty_cycle(dutycyclePW)
     chA = timA.channel(1, Timer.PWM, pin=Pin("P7"), pulse_width=round(pwA)) #setting up the channel for oscilloscope
