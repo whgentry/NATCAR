@@ -3,32 +3,35 @@
 # William Gentry
 # Daniel Burr
 
-import sensor, image, math, time, pyb, motor
+import sensor, image, math, time, pyb, motors, bluetooth
 from pyb import Pin, Timer, UART, LED, ADC
-from motor import DCMotor, ServoMotor
+from motors import DCMotor, ServoMotor
+from bluetooth import Bluetooth
 
 ##### Global Variables and Initialization #####
 ## uart
 uart = UART(1, 115200)
-uart.write("AT\r\n") #checking connection
-pyb.delay(200)
-print(uart.readline())
-uart.write("AT+VERSION\r\n") #checking version
-pyb.delay(200)
-print(uart.readline())
-pyb.delay(200)
-uart.write("AT+PSWD:\"3333\"\r\n") #setting pincode
-pyb.delay(200)
-print(uart.readline())
-pyb.delay(200)
-uart.write("AT+NAME=jimmywilldaniel\r\n") #setting the name
-pyb.delay(200)
-print(uart.readline())
-pyb.delay(200)
-uart.write("AT+UART=115200,0,0\r\n") #changing the baud rate to 115200
-pyb.delay(200)
-print(uart.readline())
-pyb.delay(200)
+bt = Bluetooth(uart)
+#uart = UART(1, 115200)
+#uart.write("AT\r\n") #checking connection
+#pyb.delay(200)
+#print(uart.readline())
+#uart.write("AT+VERSION\r\n") #checking version
+#pyb.delay(200)
+#print(uart.readline())
+#pyb.delay(200)
+#uart.write("AT+PSWD:\"3333\"\r\n") #setting pincode
+#pyb.delay(200)
+#print(uart.readline())
+#pyb.delay(200)
+#uart.write("AT+NAME=jimmywilldaniel\r\n") #setting the name
+#pyb.delay(200)
+#print(uart.readline())
+#pyb.delay(200)
+#uart.write("AT+UART=115200,0,0\r\n") #changing the baud rate to 115200
+#pyb.delay(200)
+#print(uart.readline())
+#pyb.delay(200)
 
 ## DC motor control
 dc_motor = DCMotor(tim_num=2, channel=1, frequency=100, pin="P6")
@@ -38,14 +41,8 @@ dc_motor.set_control(in_a="P2", in_b="P3", en_a="P4", en_b="P5")
 servo_motor = ServoMotor(tim_num=4, channel=1, frequency=300, pin="P7")
 servo_motor.set_range(max_pw=0.00187, min_pw=0.0011)
 
-
-## PWM Control
-#timA = Timer(4, freq=300) # Frequency in Hz
-#timB = Timer(2, freq=100) # DC motor
 sec = 0.0015 #initialize seconds value goes from 0.0011 to 0.0019
 dutycyclePW = 0
-#sourcefA = Timer.source_freq(timA)#declaration of source clock/prescaler values
-#prescalerA = Timer.prescaler(timA)
 enable = 0
 
 ## Camera Control
@@ -60,7 +57,7 @@ y_1 = 0
 x_2 = 0
 y_2 = 1
 x_3 = 0
-y_3 = 0
+y_3 = 1
 x_diff1 = 0
 x_diff2 = 0
 x_err1 = [0, 0, 0, 0]
@@ -83,8 +80,8 @@ clock = time.clock()                # Create a clock object to track the FPS.
 # PID
 Kp_s = 2.5
 Kd_s = 0.02
-max_pwm = 30
-min_pwm = 15
+max_pwm = 20
+min_pwm = 10
 # brake control
 brake_counter = 0
 brake_pwm = ((max_pwm-min_pwm) * .50) + min_pwm
@@ -94,59 +91,31 @@ command_str = "0"
 dc_command = 0
 ser_command = 0.00145 # value for straight
 
-
+# file write test
+frame_count = 0
+log_str = "Derivative\n"
 
 ##### MAIN LOOP #####
 while(True):
-    if (uart.any()):#for any uart input
-        command_str = ""
-        current_char = uart.readchar()#check, store, and output the character
-        while (current_char != 13): # newline character
-            # check for stop
-            if (current_char == 120):
-                enable = 0
-                dc_motor.brake_gnd()
-                break
-            if (current_char != -1):
-                command_str += chr(current_char)
-            current_char = uart.readchar()
-
-        #print(command_str)
-        if (len(command_str) > 1):
-            if (command_str[0] == "d"):
-                try:
-                    command_str = command_str[1:]
-                    dc_command = int(command_str)
-                except ValueError :
-                    print("You messed up")
-            elif (command_str[0] == "s"):
-                try:
-                    command_str = command_str[1:]
-                    ser_command = float(command_str)/100000
-                except ValueError :
-                    print("You messed up")
-            if (command_str[0] == "x"):
-                enable = 0
-            if (command_str[0] == "g"):
-                enable = 1
+    if (bt.any()):
+        dc_motor.brake_gnd()
+        cmd, value = bt.get_cmd_value_blocking()
+        if (cmd == "g"):
+            enable = 1
+        if (cmd == "x"):
+            enable = 0
 
     clock.tick()                    # Update the FPS clock.
     img = sensor.snapshot()         # Take a picture and return the image.
     #pin1.value(not pin1.value())
 
     if (enable == 0):
-        # convert angle to pulse width
-        #if (ser_command < 0.0019 or ser_command > 0.0011):
-            #sec = ser_command
-        #else:
         sec = 0.00145
-
-        #print(ser_command)
-
-        dutycyclePW = 0
+        dc_motor.brake_gnd()
 
     elif (enable == 1):
 
+        dc_motor.forward()
 
         # region 1
         blobs1 = img.find_blobs([thresholds], roi = roi1, pixels_threshold=10, area_threshold=10)
@@ -250,64 +219,51 @@ while(True):
         ############## U(t) ###############
 
         # brake
-        if (brake_counter == 0):
-            dc_motor.foward()
-        else:
-            dc_motor.brake_gnd()
-            brake_counter -= 1
+        #if (brake_counter == 0):
+            #dc_motor.foward()
+        #else:
+            #dc_motor.brake_gnd()
+            #brake_counter -= 1
 
-        # straight bool
-        straight = abs(center-x_2) < 10 and (abs(center-x_1) < 15) and (abs(center-x_3) < 20)
+        ## straight bool
+        #straight = abs(center-x_2) < 10 and (abs(center-x_1) < 15) and (abs(center-x_3) < 20)
 
-        # straight count
-        if straight and dutycyclePW > brake_pwm:
-            straight_counter += 1
-            print(straight_counter)
-        elif straight_counter > 40:
-            straight_counter = 0
-            brake_counter = 30
-        else:
-            staight_counter = 0
+        ## straight count
+        #if straight and dutycyclePW > brake_pwm:
+            #straight_counter += 1
+            #print(straight_counter)
+        #elif straight_counter > 40:
+            #straight_counter = 0
+            #brake_counter = 30
+        #else:
+            #staight_counter = 0
 
         # check multiple blobs on further roi
         if(len(blobs1) > len(blobs2)):
             dist2center = center - x_2
             sec = 0.001485 + 0.000385*( ((dist2center/center) * Kp_s) +  (x_diff1 * -Kd_s) )
-        #elif (abs(center-x_2 < 10) and abs(center-x_1) and abs(center-x_3)) and straight_counter > 100:
-            #dist2center = (center - x_3)
-            #sec = 0.001485 + 0.000385*( ((dist2center/center) * Kp_s) +  (x_diff1 * -Kd_s) )
         else:
             dist2center = (center - x_1)
             sec = 0.001485 + 0.000385*( ((dist2center/center) * Kp_s) +  (x_diff1 * -Kd_s) )
 
-
-        #+ (x_diff1/10)) #(angle/60) # Servo
-
         # calculate duty cycle
-        #dutycyclePW =  max_pwm  - ((abs(dist2center)/center) * (max_pwm - min_pwm))
         dutycyclePW =  max_pwm  - ((abs(angle2)/60) * (max_pwm - min_pwm)) #DC
 
-        #if(sec > 0.00187):
-            #sec = 0.00187
-        #elif(sec < 0.0011):
-            #sec = 0.0011
+        log_str += str(x_diff1) + "\n"
+        #if (frame_count > 1000):
+            #dc_motor.brake_gnd()
+            #log = open("log.csv","w")
+            #log.write(log_str)
+            #log.close()
+            #while(True):
+                #dc_motor.set_duty_cycle(0)
+                #dc_motor.brake_gnd()
 
-    # Generate a 300Hz square wave on TIM4 and with pw as pulse_width
-    #sec = .0011
-    #pwA = sec*sourcefA/(prescalerA+1) #This is the conversion for pulsewidth
-    #chB = timB.channel(4, Timer.PWM, pin=Pin("P5"), pulse_width_percent=dutycyclePW)
+        #frame_count += 1
+
+    # set the DC duty cycle
+    #dc_motor.set_duty_cycle(0)
     dc_motor.set_duty_cycle(dutycyclePW)
-    chA = timA.channel(1, Timer.PWM, pin=Pin("P7"), pulse_width=round(pwA)) #setting up the channel for oscilloscope
+    # setthe servo pusle width
+    servo_motor.set_pulse_width(sec)
 
-
-# test commit
-
-#if (motor == 1):# and command_str[0] != "x"):
-        # Generate a 100Hz square wave on TIM2
-        #angle = math.atan((x_2 - x_1)/(y_2 - y_1))
-        #angle = math.degrees(angle)
-        # saturate angle
-        #if angle > 60:
-        #    angle = 60
-        #if angle < -60:
-        #    angle = -60

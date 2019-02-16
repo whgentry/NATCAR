@@ -30,7 +30,7 @@ class DCMotor:
     def set_duty_cycle(self, duty_cycle):
         self.tim.channel(self.channel, Timer.PWM, pin=self.pin, pulse_width_percent=duty_cycle)
 
-    def foward(self):
+    def forward(self):
         self.INA.low()
         self.INB.high()
 
@@ -53,20 +53,20 @@ class ServoMotor:
         self.tim = Timer(tim_num, freq=frequency)
         self.pin = Pin(pin)
         self.channel = channel
-        self.scale = self.tim.source_freq()/(self.tim.prescaler()+1)
+        self.scale = Timer.source_freq(self.tim)/(Timer.prescaler(self.tim)+1)
 
     def set_range(self, max_pw, min_pw):
         self.max_pw = max_pw
-        self.min_pw = max_pw
+        self.min_pw = min_pw
         self.mid_pw = (max_pw + min_pw) / 2
 
     def saturate_pw(self, sec):
-        if(sec > max_pw):
-            sec = max_pw
-        elif(sec < min_pw):
-            sec = min_pw
+        if(sec > self.max_pw):
+            sec = self.max_pw
+        elif(sec < self.min_pw):
+            sec = self.min_pw
         return sec
 
     def set_pulse_width(self, sec):
         sec = self.saturate_pw(sec)
-        timA.channel(self.channel, Timer.PWM, pin=self.pin, pulse_width=round(sec * scale))
+        self.tim.channel(self.channel, Timer.PWM, pin=self.pin, pulse_width=round(sec * self.scale))
