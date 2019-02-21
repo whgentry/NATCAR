@@ -249,7 +249,7 @@ while(True):
         # calculate duty cycle
         dutycyclePW =  max_pwm  - ((abs(angle2)/60) * (max_pwm - min_pwm)) #DC
 
-        log_str += str(x_diff1) + "\n"
+        #log_str += str(x_diff1) + "\n"
         #if (frame_count > 1000):
             #dc_motor.brake_gnd()
             #log = open("log.csv","w")
