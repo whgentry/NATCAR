@@ -27,9 +27,9 @@ enable = 0
 
 ## Camera Control
 thresholds = (265, 275) #245 to 255
-roi1 = (0, 40, 160, 10)
-roi2 = (0, 80, 160, 10)  ###### note changed to 90
-roi3= (0, 10, 160, 10)
+roi1 = (0, 0, 160, 10)
+roi2 = (0, 55, 160, 10)  ###### note changed to 90
+roi3= (0, 110, 160, 10)
 dist = lambda cb,cr: abs(cr-cb)
 pin1 = Pin('P1', Pin.OUT_PP, Pin.PULL_NONE)
 x_1 = 0
@@ -58,10 +58,10 @@ clock = time.clock()                # Create a clock object to track the FPS.
 
 ## Control Values
 # PID
-Kp_s = 3
+Kp_s = 2.5
 Kd_s = 0.02
-max_pwm = 18
-min_pwm = 12
+max_pwm = 12
+min_pwm = 10
 # brake control
 brake_counter = 0
 brake_pwm = ((max_pwm-min_pwm) * .50) + min_pwm
@@ -73,7 +73,9 @@ ser_command = 0.00145 # value for straight
 
 # file write test
 frame_count = 0
-log_str = "Derivative\n"
+blob1_dist = []
+blob2_dist = []
+blob3_dist = []
 
 ##### MAIN LOOP #####
 while(True):
@@ -143,6 +145,9 @@ while(True):
         y_3 = minblob3.cy()
         rect_3 = minblob3.rect()
 
+    # Free some memory
+    del img
+
 
     ##### Servo and DC motor control #####
     if (enable == 0):
@@ -153,13 +158,11 @@ while(True):
 
         dc_motor.forward()
 
-        if (len(blobs1) == 0 or len(blobs2) == 0): # this might help for higher speeds, uses the last dist2center if off track to correct
+        if (len(blobs2) == 0 or len(blobs3) == 0 or len(blobs1) == 0): # this might help for higher speeds, uses the last dist2center if off track to correct
             if(dist2center > 0):
                 dist2center = center
             else:
                 dist2center = -center
-        #print("x_1, \n", x_2)
-        #print("x_2, \n", x_1)
 
         # update differential array
         for i in range(3):
@@ -167,34 +170,32 @@ while(True):
         x_err1[3] = center - x_1 #dist2center #chaning to dist2center makes it follow derivative of far line in a straight away!!
 
         # calculate differential value
-        x_diff1 = (x_err1[0] - x_err1[3] + (3*x_err1[1]) - (3*x_err1[2]))  # /6
-        #print(x_diff1)
+        x_diff1 = (x_err1[3] - x_err1[0] + (3*x_err1[2]) - (3*x_err1[1]))  # /6
 
-        #for i in range(3):
-             #x_err2[i] = x_err2[i+1]
-        #x_err2[3] = center - x_3 #dist2center #chaning to dist2center makes it follow derivative of far line in a straight away!!
+        for i in range(3):
+             x_err2[i] = x_err2[i+1]
+        x_err2[3] = center - x_2 #dist2center #chaning to dist2center makes it follow derivative of far line in a straight away!!
 
-        ## calculate differential value
-        #x_diff2 = (x_err2[0] - x_err2[3] + (3*x_err2[1]) - (3*x_err2[2]))  # /6
-        #print(x_diff2)
+        # calculate differential value
+        x_diff2 = (x_err2[3] - x_err2[0] + (3*x_err2[2]) - (3*x_err2[1]))  # /6
 
         # calculate angle1
-        angle1 = math.atan((x_2 - x_1)/(y_2 - y_1))
-        angle1 = math.degrees(angle1)
-         #saturate angle
-        if angle1 > 60:
-            angle1 = 60
-        if angle1 < -60:
-            angle1 = -60
+        #angle1 = math.atan((x_2 - x_1)/(y_2 - y_1))
+        #angle1 = math.degrees(angle1)
+         ##saturate angle
+        #if angle1 > 60:
+            #angle1 = 60
+        #if angle1 < -60:
+            #angle1 = -60
 
-        # calculate angle2
-        angle2 = math.atan((x_1 - x_3)/(y_1 - y_3))
-        angle2 = math.degrees(angle2)
-        #saturate angle
-        if angle2 > 60:
-           angle2 = 60
-        if angle2 < -60:
-           angle2 = -60
+        ## calculate angle2
+        #angle2 = math.atan((x_1 - x_3)/(y_1 - y_3))
+        #angle2 = math.degrees(angle2)
+        ##saturate angle
+        #if angle2 > 60:
+           #angle2 = 60
+        #if angle2 < -60:
+           #angle2 = -60
 
         ############## U(t) ###############
 
@@ -219,21 +220,32 @@ while(True):
             #staight_counter = 0
 
         # check multiple blobs on further roi
-        if(len(blobs1) > len(blobs2)):
-            dist2center = center - x_2
-            sec = 0.001485 + 0.000385*( ((dist2center/center) * Kp_s) +  (x_diff1 * -Kd_s) )
-        else:
-            dist2center = (center - x_1)
-            sec = 0.001485 + 0.000385*( ((dist2center/center) * Kp_s) +  (x_diff1 * -Kd_s) )
+        #if(len(blobs2) > len(blobs3)):
+            #dist2center = center - x_3
+            #log_str += str(0) + "\n"
+            #sec = 0.001485 + 0.000385*( ((dist2center/center) * Kp_s) +  (x_diff1 * Kd_s) )
+        #else:
+            #dist2center = (center - x_2)
+            #log_str += str(dist2center) + "\n"
+            #sec = 0.001485 + 0.000385*( ((dist2center/center) * Kp_s) +  (x_diff1 * Kd_s) )
+
+        dist2center = center - x_3
+        sec = 0.001485 + 0.000385*( ((dist2center/center) * Kp_s) )
 
         # calculate duty cycle
-        dutycyclePW =  max_pwm  - ((abs(angle2)/60) * (max_pwm - min_pwm)) #DC
+        dutycyclePW =  max_pwm  - (abs(dist2center/center) * (max_pwm - min_pwm)) #DC
 
-        log_str += str(x_diff1) + "\n"
+        blob1_dist.append(center - x_1)
+        blob2_dist.append(center - x_2)
+
         if (frame_count > 1000):
             dc_motor.brake_gnd()
+
             log = open("log.csv","w")
-            log.write(log_str)
+            log.write("Frame, x_1, x_2, x_3\n")
+            for i in range(1000-1):
+                log.write(str(i) + ", " + str(blob1_dist[i]) + ", " + str(blob2_dist[i]) + ", " + str(blob3_dist[i]) + "\n")
+
             log.close()
             while(True):
                 dc_motor.set_duty_cycle(0)
