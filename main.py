@@ -12,26 +12,6 @@ from bluetooth import Bluetooth
 ## uart
 uart = UART(1, 115200)
 bt = Bluetooth(uart)
-#uart = UART(1, 115200)
-#uart.write("AT\r\n") #checking connection
-#pyb.delay(200)
-#print(uart.readline())
-#uart.write("AT+VERSION\r\n") #checking version
-#pyb.delay(200)
-#print(uart.readline())
-#pyb.delay(200)
-#uart.write("AT+PSWD:\"3333\"\r\n") #setting pincode
-#pyb.delay(200)
-#print(uart.readline())
-#pyb.delay(200)
-#uart.write("AT+NAME=jimmywilldaniel\r\n") #setting the name
-#pyb.delay(200)
-#print(uart.readline())
-#pyb.delay(200)
-#uart.write("AT+UART=115200,0,0\r\n") #changing the baud rate to 115200
-#pyb.delay(200)
-#print(uart.readline())
-#pyb.delay(200)
 
 ## DC motor control
 dc_motor = DCMotor(tim_num=2, channel=1, frequency=100, pin="P6")
@@ -78,10 +58,10 @@ clock = time.clock()                # Create a clock object to track the FPS.
 
 ## Control Values
 # PID
-Kp_s = 2.5
+Kp_s = 3
 Kd_s = 0.02
-max_pwm = 20
-min_pwm = 10
+max_pwm = 18
+min_pwm = 12
 # brake control
 brake_counter = 0
 brake_pwm = ((max_pwm-min_pwm) * .50) + min_pwm
@@ -107,8 +87,64 @@ while(True):
 
     clock.tick()                    # Update the FPS clock.
     img = sensor.snapshot()         # Take a picture and return the image.
-    #pin1.value(not pin1.value())
 
+
+    ##### Blob Detection #####
+    # region 1
+    blobs1 = img.find_blobs([thresholds], roi = roi1, pixels_threshold=10, area_threshold=10)
+    center = roi1[2]/2
+
+    if (len(blobs1) > 0):
+        minblob1 = blobs1[0]
+        mindist1 = dist(minblob1.cx(),center)
+
+        for blob in blobs1:
+            if (dist(blob.cx(), center) < mindist1):
+                minblob1 = blob
+
+        img.draw_rectangle(minblob1.rect(), color = 0)
+        img.draw_cross(minblob1.cx( ), minblob1.cy(), color = 0)
+        x_1 = minblob1.cx()
+        y_1 = minblob1.cy()
+        rect_1 = minblob1.rect()
+
+    # region 2
+    blobs2 = img.find_blobs([thresholds], roi = roi2, pixels_threshold=10, area_threshold=10)
+    center = roi2[2]/2
+
+    if (len(blobs2) > 0):
+        minblob2 = blobs2[0]
+        mindist2 = dist(minblob2.cx(),center)
+
+        for blob in blobs2:
+            if (dist(blob.cx(), center) < mindist2):
+                minblob2 = blob
+
+        img.draw_rectangle(minblob2.rect(), color = 0)
+        img.draw_cross(minblob2.cx(), minblob2.cy(), color = 0)
+        x_2 = minblob2.cx()
+        y_2 = minblob2.cy()
+        rect_2 = minblob2.rect()
+
+    blobs3 = img.find_blobs([thresholds], roi = roi3, pixels_threshold=10, area_threshold=10)
+    center = roi3[2]/2
+
+    if (len(blobs3) > 0):
+        minblob3 = blobs3[0]
+        mindist3 = dist(minblob3.cx(),center)
+
+        for blob in blobs3:
+            if (dist(blob.cx(), center) < mindist3):
+                minblob3 = blob
+
+        img.draw_rectangle(minblob3.rect(), color = 0)
+        img.draw_cross(minblob3.cx(), minblob3.cy(), color = 0)
+        x_3 = minblob3.cx()
+        y_3 = minblob3.cy()
+        rect_3 = minblob3.rect()
+
+
+    ##### Servo and DC motor control #####
     if (enable == 0):
         sec = 0.00145
         dc_motor.brake_gnd()
@@ -116,62 +152,6 @@ while(True):
     elif (enable == 1):
 
         dc_motor.forward()
-
-        # region 1
-        blobs1 = img.find_blobs([thresholds], roi = roi1, pixels_threshold=10, area_threshold=10)
-        center = roi1[2]/2
-
-        if (len(blobs1) > 0):
-            minblob1 = blobs1[0]
-            mindist1 = dist(minblob1.cx(),center)
-
-            for blob in blobs1:
-                if (dist(blob.cx(), center) < mindist1):
-                    minblob1 = blob
-
-            img.draw_rectangle(minblob1.rect(), color = 0)
-            img.draw_cross(minblob1.cx( ), minblob1.cy(), color = 0)
-            x_1 = minblob1.cx()
-            y_1 = minblob1.cy()
-            rect_1 = minblob1.rect()
-
-        # region 2
-        blobs2 = img.find_blobs([thresholds], roi = roi2, pixels_threshold=10, area_threshold=10)
-        center = roi2[2]/2
-
-        if (len(blobs2) > 0):
-            minblob2 = blobs2[0]
-            mindist2 = dist(minblob2.cx(),center)
-
-            for blob in blobs2:
-                if (dist(blob.cx(), center) < mindist2):
-                    minblob2 = blob
-
-            img.draw_rectangle(minblob2.rect(), color = 0)
-            img.draw_cross(minblob2.cx(), minblob2.cy(), color = 0)
-            x_2 = minblob2.cx()
-            y_2 = minblob2.cy()
-            rect_2 = minblob2.rect()
-
-        blobs3 = img.find_blobs([thresholds], roi = roi3, pixels_threshold=10, area_threshold=10)
-        center = roi3[2]/2
-
-        if (len(blobs3) > 0):
-            minblob3 = blobs3[0]
-            mindist3 = dist(minblob3.cx(),center)
-
-            for blob in blobs3:
-                if (dist(blob.cx(), center) < mindist3):
-                    minblob3 = blob
-
-            img.draw_rectangle(minblob3.rect(), color = 0)
-            img.draw_cross(minblob3.cx(), minblob3.cy(), color = 0)
-            x_3 = minblob3.cx()
-            y_3 = minblob3.cy()
-            rect_3 = minblob3.rect()
-
-
-
 
         if (len(blobs1) == 0 or len(blobs2) == 0): # this might help for higher speeds, uses the last dist2center if off track to correct
             if(dist2center > 0):
@@ -249,17 +229,17 @@ while(True):
         # calculate duty cycle
         dutycyclePW =  max_pwm  - ((abs(angle2)/60) * (max_pwm - min_pwm)) #DC
 
-        #log_str += str(x_diff1) + "\n"
-        #if (frame_count > 1000):
-            #dc_motor.brake_gnd()
-            #log = open("log.csv","w")
-            #log.write(log_str)
-            #log.close()
-            #while(True):
-                #dc_motor.set_duty_cycle(0)
-                #dc_motor.brake_gnd()
+        log_str += str(x_diff1) + "\n"
+        if (frame_count > 1000):
+            dc_motor.brake_gnd()
+            log = open("log.csv","w")
+            log.write(log_str)
+            log.close()
+            while(True):
+                dc_motor.set_duty_cycle(0)
+                dc_motor.brake_gnd()
 
-        #frame_count += 1
+        frame_count += 1
 
     # set the DC duty cycle
     #dc_motor.set_duty_cycle(0)
