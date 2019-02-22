@@ -86,6 +86,8 @@ while(True):
             enable = 1
         if (cmd == "x"):
             enable = 0
+        if (cmd == "Kd_s"):
+            Kd_s = value
 
     clock.tick()                    # Update the FPS clock.
     img = sensor.snapshot()         # Take a picture and return the image.
@@ -235,23 +237,23 @@ while(True):
         # calculate duty cycle
         dutycyclePW =  max_pwm  - (abs(dist2center/center) * (max_pwm - min_pwm)) #DC
 
-        blob1_dist.append(center - x_1)
-        blob2_dist.append(center - x_2)
+        #blob1_dist.append(center - x_1)
+        #blob2_dist.append(center - x_2)
 
-        if (frame_count > 1000):
-            dc_motor.brake_gnd()
+        #if (frame_count > 1000):
+            #dc_motor.brake_gnd()
 
-            log = open("log.csv","w")
-            log.write("Frame, x_1, x_2, x_3\n")
-            for i in range(1000-1):
-                log.write(str(i) + ", " + str(blob1_dist[i]) + ", " + str(blob2_dist[i]) + ", " + str(blob3_dist[i]) + "\n")
+            #log = open("log.csv","w")
+            #log.write("Frame, x_1, x_2, x_3\n")
+            #for i in range(1000-1):
+                #log.write(str(i) + ", " + str(blob1_dist[i]) + ", " + str(blob2_dist[i]) + ", " + str(blob3_dist[i]) + "\n")
 
-            log.close()
-            while(True):
-                dc_motor.set_duty_cycle(0)
-                dc_motor.brake_gnd()
+            #log.close()
+            #while(True):
+                #dc_motor.set_duty_cycle(0)
+                #dc_motor.brake_gnd()
 
-        frame_count += 1
+        #frame_count += 1
 
     # set the DC duty cycle
     #dc_motor.set_duty_cycle(0)
