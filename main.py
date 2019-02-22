@@ -20,8 +20,8 @@ dc_motor.set_control(in_a="P2", in_b="P3", en_a="P4", en_b="P5")
 dutycyclePW = 0
 
 ## Servo motor control
-servo_max = 0.00187
-servo_min = 0.0011
+servo_max = 0.00183
+servo_min = 0.00102
 servo_center = (servo_max + servo_min) / 2
 servo_offset = servo_max - servo_center
 servo_motor = ServoMotor(tim_num=4, channel=1, frequency=300, pin="P7")
@@ -33,8 +33,8 @@ enable = 0
 ## Camera Control
 thresholds = (265, 275) #245 to 255
 
-max_roi = 100
-min_roi = 10
+max_roi = 90
+min_roi = 20
 diff_roi = max_roi - min_roi
 percent_change = 0
 
@@ -69,11 +69,11 @@ clock = time.clock()                # Create a clock object to track the FPS.
 
 ## Control Values
 # PID
-Kp_min_s = 2.5
-Kp_max_s = 5
+Kp_min_s = 2 #2.5
+Kp_max_s = 2.5
 Kd_s = 0.02
-max_pwm = 12
-min_pwm = 10
+max_pwm = 18
+min_pwm = 13
 # brake control
 brake_counter = 0
 brake_pwm = ((max_pwm-min_pwm) * .50) + min_pwm
@@ -92,10 +92,33 @@ while(True):
             enable = 1
         if (cmd == "x"):
             enable = 0
-        if (cmd == "Kd_s"):
-            Kp_s = value
+
+        if (cmd == "Kp_min"):
+            Kp_min_s = value
+        if (cmd == "Kp_max"):
+            Kp_max_s = value
+        if (cmd == "KD"):
+            Kd_s = value
+
         if (cmd =="max_pwm"):
             max_pwm = value
+        if (cmd == "min_pwm"):
+            min_pwm = value
+
+        if (cmd == "servo_max"):
+            servo_max = value
+            sec = servo_max
+        if (cmd == "servo_min"):
+            servo_min = value
+            sec = servo_min
+
+        if (cmd == "max_roi"):
+            max_roi = value
+            diff_roi = max_roi - min_roi
+        if (cmd == "min_roi"):
+            min_roi = value
+            diff_roi = max_roi - min_roi
+
 
     clock.tick()                    # Update the FPS clock.
     img = sensor.snapshot()         # Take a picture and return the image.
@@ -105,7 +128,7 @@ while(True):
 
     # dynamic ROI, more the wheels are turned, the closer the roi
 
-    if (abs((servo_center - sec)/servo_offset) > .9):
+    if (abs((servo_center - sec)/servo_offset) > .8):
         percent_change += 0.01
     else:
         percent_change -= 0.01
@@ -118,8 +141,8 @@ while(True):
     print(percent_change)
 
 
-    blob_height = int( min_roi + -diff_roi * (sqrt(1-percent_change**2) - 1) )
-    #blob_height = int( min_roi + diff_roi * (percent_change) )
+    #blob_height = int( min_roi + -diff_roi * (sqrt(1-percent_change**2) - 1) )
+    blob_height = int( min_roi + diff_roi * (percent_change) )
 
     roi1 = (0, blob_height, 160, 10)
 
@@ -143,7 +166,7 @@ while(True):
 
     ##### Servo and DC motor control #####
     if (enable == 0):
-        sec = 0.00145
+        servo_motor.set_range(max_pw=servo_max, min_pw=servo_min)
         dc_motor.brake_gnd()
 
     elif (enable == 1):
@@ -175,8 +198,11 @@ while(True):
         ############## U(t) ###############
 
         dist2center = center - x_1
-        sec = servo_center + servo_offset*( ((dist2center/center) * (Kp_min_s + (Kp_max_s-Kp_min_s)*percent_change)) + (x_diff2 *Kd_s) )
-
+        sec = servo_center + servo_offset*( ((dist2center/center) * (Kp_min_s + (Kp_max_s-Kp_min_s)*percent_change)) + (x_diff1 * Kd_s) )
+        if sec > servo_max :
+            sec = servo_max
+        if sec < servo_min:
+            sec = servo_min
         # calculate duty cycle
         dutycyclePW =  max_pwm  - (abs(dist2center/center) * (max_pwm - min_pwm)) #DC
 
@@ -185,4 +211,3 @@ while(True):
     dc_motor.set_duty_cycle(dutycyclePW)
     # setthe servo pusle width
     servo_motor.set_pulse_width(sec)
-
