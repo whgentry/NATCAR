@@ -26,10 +26,10 @@ dutycyclePW = 0
 enable = 0
 
 ## Camera Control
-thresholds = (265, 275) #245 to 255
-roi1 = (0, 0, 160, 10)
-roi2 = (0, 55, 160, 10)  ###### note changed to 90
-roi3= (0, 110, 160, 10)
+thresholds = (245, 255) #245 to 255
+roi1 = (40, 20, 80, 10)
+roi2 = (40, 40, 80, 10)  ###### note changed to 90
+roi3= (40, 80, 80, 10)
 dist = lambda cb,cr: abs(cr-cb)
 pin1 = Pin('P1', Pin.OUT_PP, Pin.PULL_NONE)
 x_1 = 0
@@ -60,7 +60,7 @@ clock = time.clock()                # Create a clock object to track the FPS.
 # PID
 Kp_s = 2.5
 Kd_s = 0.02
-max_pwm = 12
+max_pwm = 20
 min_pwm = 10
 # brake control
 brake_counter = 0
@@ -86,8 +86,6 @@ while(True):
             enable = 1
         if (cmd == "x"):
             enable = 0
-        if (cmd == "Kd_s"):
-            Kd_s = value
 
     clock.tick()                    # Update the FPS clock.
     img = sensor.snapshot()         # Take a picture and return the image.
@@ -96,7 +94,7 @@ while(True):
     ##### Blob Detection #####
     # region 1
     blobs1 = img.find_blobs([thresholds], roi = roi1, pixels_threshold=10, area_threshold=10)
-    center = roi1[2]/2
+    center = 80
 
     if (len(blobs1) > 0):
         minblob1 = blobs1[0]
@@ -114,7 +112,7 @@ while(True):
 
     # region 2
     blobs2 = img.find_blobs([thresholds], roi = roi2, pixels_threshold=10, area_threshold=10)
-    center = roi2[2]/2
+    center = 80
 
     if (len(blobs2) > 0):
         minblob2 = blobs2[0]
@@ -131,7 +129,7 @@ while(True):
         rect_2 = minblob2.rect()
 
     blobs3 = img.find_blobs([thresholds], roi = roi3, pixels_threshold=10, area_threshold=10)
-    center = roi3[2]/2
+    center = 80
 
     if (len(blobs3) > 0):
         minblob3 = blobs3[0]
@@ -222,17 +220,22 @@ while(True):
             #staight_counter = 0
 
         # check multiple blobs on further roi
-        #if(len(blobs2) > len(blobs3)):
-            #dist2center = center - x_3
-            #log_str += str(0) + "\n"
-            #sec = 0.001485 + 0.000385*( ((dist2center/center) * Kp_s) +  (x_diff1 * Kd_s) )
-        #else:
-            #dist2center = (center - x_2)
+        if(len(blobs2) > len(blobs3)):
+            if(len(blobs1) > len(blobs3)):
+                dist2center = center - x_3
+                #log_str += str(0) + "\n"
+                sec = 0.001485 + 0.000385*( ((dist2center/center) * Kp_s) +  (x_diff1 * Kd_s) )
+            else:
+                dist2center = center - x_1
+                #log_str += str(0) + "\n"
+                sec = 0.001485 + 0.000385*( ((dist2center/center) * Kp_s) +  (x_diff1 * Kd_s) )
+        else:
+            dist2center = (center - x_2)
             #log_str += str(dist2center) + "\n"
-            #sec = 0.001485 + 0.000385*( ((dist2center/center) * Kp_s) +  (x_diff1 * Kd_s) )
+            sec = 0.001485 + 0.000385*( ((dist2center/center) * Kp_s) +  (x_diff1 * Kd_s) )
 
-        dist2center = center - x_3
-        sec = 0.001485 + 0.000385*( ((dist2center/center) * Kp_s) )
+        #dist2center = center - x_3
+        #sec = 0.001485 + 0.000385*( ((dist2center/center) * Kp_s) )
 
         # calculate duty cycle
         dutycyclePW =  max_pwm  - (abs(dist2center/center) * (max_pwm - min_pwm)) #DC
@@ -246,7 +249,7 @@ while(True):
             #log = open("log.csv","w")
             #log.write("Frame, x_1, x_2, x_3\n")
             #for i in range(1000-1):
-                #log.write(str(i) + ", " + str(blob1_dist[i]) + ", " + str(blob2_dist[i]) + ", " + str(blob3_dist[i]) + "\n")
+                #log.write(str(i) + ", " + str(blob1_dist[i])) #+ ", " + str(blob2_dist[i]) + ", " + str(blob3_dist[i]) + "\n")
 
             #log.close()
             #while(True):
