@@ -5,6 +5,7 @@
 
 import sensor, image, math, time, pyb, motors, bluetooth
 from pyb import Pin, Timer, UART, LED, ADC
+from math import sqrt
 from motors import DCMotor, ServoMotor
 from bluetooth import Bluetooth
 
@@ -16,17 +17,27 @@ bt = Bluetooth(uart)
 ## DC motor control
 dc_motor = DCMotor(tim_num=2, channel=1, frequency=100, pin="P6")
 dc_motor.set_control(in_a="P2", in_b="P3", en_a="P4", en_b="P5")
+dutycyclePW = 0
 
 ## Servo motor control
+servo_max = 0.00187
+servo_min = 0.0011
+servo_center = (servo_max + servo_min) / 2
+servo_offset = servo_max - servo_center
 servo_motor = ServoMotor(tim_num=4, channel=1, frequency=300, pin="P7")
-servo_motor.set_range(max_pw=0.00187, min_pw=0.0011)
+servo_motor.set_range(max_pw=servo_max, min_pw=servo_min)
+sec = servo_center
 
-sec = 0.0015 #initialize seconds value goes from 0.0011 to 0.0019
-dutycyclePW = 0
 enable = 0
 
 ## Camera Control
 thresholds = (265, 275) #245 to 255
+
+max_roi = 100
+min_roi = 10
+diff_roi = max_roi - min_roi
+percent_change = 0
+
 roi1 = (0, 0, 160, 10)
 roi2 = (0, 55, 160, 10)  ###### note changed to 90
 roi3= (0, 110, 160, 10)
@@ -58,7 +69,8 @@ clock = time.clock()                # Create a clock object to track the FPS.
 
 ## Control Values
 # PID
-Kp_s = 2.5
+Kp_min_s = 2.5
+Kp_max_s = 5
 Kd_s = 0.02
 max_pwm = 12
 min_pwm = 10
@@ -71,12 +83,6 @@ command_str = "0"
 dc_command = 0
 ser_command = 0.00145 # value for straight
 
-# file write test
-frame_count = 0
-blob1_dist = []
-blob2_dist = []
-blob3_dist = []
-
 ##### MAIN LOOP #####
 while(True):
     if (bt.any()):
@@ -87,13 +93,36 @@ while(True):
         if (cmd == "x"):
             enable = 0
         if (cmd == "Kd_s"):
-            Kd_s = value
+            Kp_s = value
+        if (cmd =="max_pwm"):
+            max_pwm = value
 
     clock.tick()                    # Update the FPS clock.
     img = sensor.snapshot()         # Take a picture and return the image.
 
 
     ##### Blob Detection #####
+
+    # dynamic ROI, more the wheels are turned, the closer the roi
+
+    if (abs((servo_center - sec)/servo_offset) > .9):
+        percent_change += 0.01
+    else:
+        percent_change -= 0.01
+
+    if(percent_change > 1):
+        percent_change = 1
+    if(percent_change < 0):
+        percent_change = 0
+
+    print(percent_change)
+
+
+    blob_height = int( min_roi + -diff_roi * (sqrt(1-percent_change**2) - 1) )
+    #blob_height = int( min_roi + diff_roi * (percent_change) )
+
+    roi1 = (0, blob_height, 160, 10)
+
     # region 1
     blobs1 = img.find_blobs([thresholds], roi = roi1, pixels_threshold=10, area_threshold=10)
     center = roi1[2]/2
@@ -111,45 +140,6 @@ while(True):
         x_1 = minblob1.cx()
         y_1 = minblob1.cy()
         rect_1 = minblob1.rect()
-
-    # region 2
-    blobs2 = img.find_blobs([thresholds], roi = roi2, pixels_threshold=10, area_threshold=10)
-    center = roi2[2]/2
-
-    if (len(blobs2) > 0):
-        minblob2 = blobs2[0]
-        mindist2 = dist(minblob2.cx(),center)
-
-        for blob in blobs2:
-            if (dist(blob.cx(), center) < mindist2):
-                minblob2 = blob
-
-        img.draw_rectangle(minblob2.rect(), color = 0)
-        img.draw_cross(minblob2.cx(), minblob2.cy(), color = 0)
-        x_2 = minblob2.cx()
-        y_2 = minblob2.cy()
-        rect_2 = minblob2.rect()
-
-    blobs3 = img.find_blobs([thresholds], roi = roi3, pixels_threshold=10, area_threshold=10)
-    center = roi3[2]/2
-
-    if (len(blobs3) > 0):
-        minblob3 = blobs3[0]
-        mindist3 = dist(minblob3.cx(),center)
-
-        for blob in blobs3:
-            if (dist(blob.cx(), center) < mindist3):
-                minblob3 = blob
-
-        img.draw_rectangle(minblob3.rect(), color = 0)
-        img.draw_cross(minblob3.cx(), minblob3.cy(), color = 0)
-        x_3 = minblob3.cx()
-        y_3 = minblob3.cy()
-        rect_3 = minblob3.rect()
-
-    # Free some memory
-    del img
-
 
     ##### Servo and DC motor control #####
     if (enable == 0):
@@ -181,79 +171,14 @@ while(True):
         # calculate differential value
         x_diff2 = (x_err2[3] - x_err2[0] + (3*x_err2[2]) - (3*x_err2[1]))  # /6
 
-        # calculate angle1
-        #angle1 = math.atan((x_2 - x_1)/(y_2 - y_1))
-        #angle1 = math.degrees(angle1)
-         ##saturate angle
-        #if angle1 > 60:
-            #angle1 = 60
-        #if angle1 < -60:
-            #angle1 = -60
-
-        ## calculate angle2
-        #angle2 = math.atan((x_1 - x_3)/(y_1 - y_3))
-        #angle2 = math.degrees(angle2)
-        ##saturate angle
-        #if angle2 > 60:
-           #angle2 = 60
-        #if angle2 < -60:
-           #angle2 = -60
 
         ############## U(t) ###############
 
-        # brake
-        #if (brake_counter == 0):
-            #dc_motor.foward()
-        #else:
-            #dc_motor.brake_gnd()
-            #brake_counter -= 1
-
-        ## straight bool
-        #straight = abs(center-x_2) < 10 and (abs(center-x_1) < 15) and (abs(center-x_3) < 20)
-
-        ## straight count
-        #if straight and dutycyclePW > brake_pwm:
-            #straight_counter += 1
-            #print(straight_counter)
-        #elif straight_counter > 40:
-            #straight_counter = 0
-            #brake_counter = 30
-        #else:
-            #staight_counter = 0
-
-        # check multiple blobs on further roi
-        #if(len(blobs2) > len(blobs3)):
-            #dist2center = center - x_3
-            #log_str += str(0) + "\n"
-            #sec = 0.001485 + 0.000385*( ((dist2center/center) * Kp_s) +  (x_diff1 * Kd_s) )
-        #else:
-            #dist2center = (center - x_2)
-            #log_str += str(dist2center) + "\n"
-            #sec = 0.001485 + 0.000385*( ((dist2center/center) * Kp_s) +  (x_diff1 * Kd_s) )
-
-        dist2center = center - x_3
-        sec = 0.001485 + 0.000385*( ((dist2center/center) * Kp_s) )
+        dist2center = center - x_1
+        sec = servo_center + servo_offset*( ((dist2center/center) * (Kp_min_s + (Kp_max_s-Kp_min_s)*percent_change)) + (x_diff2 *Kd_s) )
 
         # calculate duty cycle
         dutycyclePW =  max_pwm  - (abs(dist2center/center) * (max_pwm - min_pwm)) #DC
-
-        #blob1_dist.append(center - x_1)
-        #blob2_dist.append(center - x_2)
-
-        #if (frame_count > 1000):
-            #dc_motor.brake_gnd()
-
-            #log = open("log.csv","w")
-            #log.write("Frame, x_1, x_2, x_3\n")
-            #for i in range(1000-1):
-                #log.write(str(i) + ", " + str(blob1_dist[i]) + ", " + str(blob2_dist[i]) + ", " + str(blob3_dist[i]) + "\n")
-
-            #log.close()
-            #while(True):
-                #dc_motor.set_duty_cycle(0)
-                #dc_motor.brake_gnd()
-
-        #frame_count += 1
 
     # set the DC duty cycle
     #dc_motor.set_duty_cycle(0)
