@@ -68,9 +68,9 @@ Kd_s = 0.02
 max_pwm = 18
 min_pwm = 13
 # brake control
-brake_counter = 0
-brake_pwm = ((max_pwm-min_pwm) * .50) + min_pwm
 straight_counter = 0
+brake_counter = 0
+
 # manual control
 command_str = "0"
 dc_command = 0
@@ -139,7 +139,7 @@ while(True):
     center = roi1[2]/2
 
     if (len(blobs1) > 0):
-        if (len(blobs1) == 3 and (abs(blobs1[0].cx() - center) < 15 and abs(blobs1[0].cx() - center) < 15 and abs(blobs1[0].cx() - center) < 15)):
+        if (len(blobs1) == 3 and (abs(blobs1[0].cx() - center) < 5 and abs(blobs1[0].cx() - center) < 5 and abs(blobs1[0].cx() - center) < 5)):
             dc_motor.brake_vcc()
             enable = 0
         else:
@@ -182,19 +182,13 @@ while(True):
     elif (enable == 1):
         if (brake_counter == 0):
             dc_motor.forward()
+            straight_counter += 1
+            if (straight_counter > 50 and dutycyclePW > max_pwm * 0.9 and abs((servo_center - sec)/servo_offset) > 0.4):
+                straight_counter = 0
+                brake_counter = 10
         else:
             dc_motor.brake_vcc()
             brake_counter -= 1
-
-        straight = abs(percent_change) < 0.20
-        if straight and abs((servo_center - sec)/servo_offset) < 0.3:
-            straight_counter += 1
-        elif straight_counter > 75:
-            straight_counter = 0
-            brake_counter = 25
-        else:
-            staight_counter = 0
-
         dutycyclePW =  max_pwm  - (abs(dist2center/center) * (max_pwm - min_pwm)) #DC
 
     dc_motor.set_duty_cycle(dutycyclePW)
