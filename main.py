@@ -139,8 +139,9 @@ while(True):
     center = roi1[2]/2
 
     if (len(blobs1) > 0):
-        if (len(blobs1) == 3 and (abs(blobs1[0].cx() - center) < 10 and abs(blobs1[1].cx() - center) < 10 and abs(blobs1[2].cx() - center) < 10)):
+        if (len(blobs1) == 3 and (abs(blobs1[1].cx() - blobs1[0].cx()) < 30 and abs(blobs1[1].cx() - blobs1[2].cx()) < 30)):
             dc_motor.brake_vcc()
+            print("3 lines detected")
             enable = 0
         else:
             minblob1 = blobs1[0]
@@ -180,32 +181,8 @@ while(True):
         dc_motor.brake_vcc()
 
     elif (enable == 1):
+        dc_motor.forward()
 
-        if(brake_counter == 0):
-            dc_motor.forward()
-        else:
-            dc_motor.brake_vcc()
-            brake_counter -= 1
-
-        straight = abs(percent_change) < 0.20
-
-        if straight:
-            straight_counter += 1
-        elif straight_counter > 75 and abs(percent_change) > 0.40:
-            straight_counter = 0
-            brake_counter = 25
-        else:
-            straight_counter = 0
-
-        #if (brake_counter == 0):
-            #dc_motor.forward()
-            #straight_counter += 1
-            #if (straight_counter > 50 and dutycyclePW > max_pwm * 0.9 and abs((servo_center - sec)/servo_offset) > 0.4):
-                #straight_counter = 0
-                #brake_counter = 10
-        #else:
-            #dc_motor.brake_vcc()
-            #brake_counter -= 1
         dutycyclePW =  max_pwm  - (abs(dist2center/center) * (max_pwm - min_pwm)) #DC
 
     dc_motor.set_duty_cycle(dutycyclePW)
