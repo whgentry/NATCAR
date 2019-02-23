@@ -21,6 +21,7 @@ class DCMotor:
 
     def set_current_sense(self, cs, cs_dis):
         self.CS_DIS = Pin(cs_dis, Pin.OUT_PP)
+        self.CS_DIS.low()
         self.CS = Pin(cs, Pin.IN)
         self.current = ADC(self.CS)
 

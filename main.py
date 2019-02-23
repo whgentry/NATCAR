@@ -15,8 +15,9 @@ uart = UART(1, 115200)
 bt = Bluetooth(uart)
 
 ## DC motor control
-dc_motor = DCMotor(tim_num=2, channel=1, frequency=100, pin="P6")
-dc_motor.set_control(in_a="P2", in_b="P3", en_a="P4", en_b="P5")
+dc_motor = DCMotor(tim_num=2, channel=4, frequency=500, pin="P5")
+dc_motor.set_control(in_a="P2", in_b="P3", en_a="P4", en_b="P8")
+dc_motor.set_current_sense(cs="P6", cs_dis="P9")
 dutycyclePW = 0
 
 ## Servo motor control
@@ -83,6 +84,12 @@ command_str = "0"
 dc_command = 0
 ser_command = 0.00145 # value for straight
 
+# file writing
+frame_count = 0
+log_str = "Current Sense\n"
+buff_size = 10
+current_buff = [0] * buff_size
+
 ##### MAIN LOOP #####
 while(True):
     if (bt.any()):
@@ -138,7 +145,7 @@ while(True):
     if(percent_change < 0):
         percent_change = 0
 
-    print(percent_change)
+    #print(percent_change)
 
 
     #blob_height = int( min_roi + -diff_roi * (sqrt(1-percent_change**2) - 1) )
@@ -167,10 +174,9 @@ while(True):
     ##### Servo and DC motor control #####
     if (enable == 0):
         servo_motor.set_range(max_pw=servo_max, min_pw=servo_min)
-        dc_motor.brake_gnd()
+        dc_motor.brake_vcc()
 
     elif (enable == 1):
-
         dc_motor.forward()
 
         if (len(blobs2) == 0 or len(blobs3) == 0 or len(blobs1) == 0): # this might help for higher speeds, uses the last dist2center if off track to correct
@@ -204,7 +210,28 @@ while(True):
         if sec < servo_min:
             sec = servo_min
         # calculate duty cycle
-        dutycyclePW =  max_pwm  - (abs(dist2center/center) * (max_pwm - min_pwm)) #DC
+        dutycyclePW =  max_pwm # - (abs(dist2center/center) * (max_pwm - min_pwm)) #DC
+
+
+        for i in range(buff_size-1):
+             current_buff[i] = current_buff[i+1]
+        current_buff[buff_size - 1] = dc_motor.get_current()
+
+        average = 0
+        for val in current_buff:
+            average += val
+        average /= buff_size
+
+        log_str += str(average) + '\n'
+        if (frame_count > 1000):
+            dc_motor.brake_vcc()
+            log = open("log.csv","w")
+            log.write(log_str)
+            log.close()
+            while(True):
+                dc_motor.brake_vcc()
+
+        frame_count += 1
 
     # set the DC duty cycle
     #dc_motor.set_duty_cycle(0)
