@@ -22,7 +22,7 @@ dutycyclePW = 0
 
 ## Servo motor control
 servo_max = 0.00183
-servo_min = 0.00102
+servo_min = 0.0098
 servo_center = (servo_max + servo_min) / 2
 servo_offset = servo_max - servo_center
 servo_motor = ServoMotor(tim_num=4, channel=1, frequency=300, pin="P7")
@@ -62,11 +62,11 @@ clock = time.clock()                # Create a clock object to track the FPS.
 
 ## Control Values
 # PID
-Kp_min_s = 2 #2.5
-Kp_max_s = 2.5
-Kd_s = 0.02
-max_pwm = 18
-min_pwm = 13
+Kp_min_s = 1.5 #2.5
+Kp_max_s = 1.5
+Kd_s = 0.025
+max_pwm = 17
+min_pwm = 15
 # brake control
 straight_counter = 0
 brake_counter = 0
@@ -122,9 +122,9 @@ while(True):
     # dynamic ROI, more the wheels are turned, the closer the roi
 
     if (abs((servo_center - sec)/servo_offset) > .8):
-        percent_change += 0.01
+        percent_change += 0.015
     else:
-        percent_change -= 0.01
+        percent_change -= 0.015
 
     if(percent_change > 1):
         percent_change = 1
@@ -139,7 +139,7 @@ while(True):
     center = roi1[2]/2
 
     if (len(blobs1) > 0):
-        if (len(blobs1) == 3 and (abs(blobs1[1].cx() - blobs1[0].cx()) < 30 and abs(blobs1[1].cx() - blobs1[2].cx()) < 30)):
+        if (len(blobs1) == 3 and (abs(blobs1[1].cx() - blobs1[0].cx()) < 40 and abs(blobs1[1].cx() - blobs1[2].cx()) < 40)):
             dc_motor.brake_vcc()
             print("3 lines detected")
             enable = 0
