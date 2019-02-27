@@ -22,14 +22,14 @@ dutycyclePW = 0
 
 ## Servo motor control
 servo_max = 0.00183
-servo_min = 0.0098
+servo_min = 0.00098
 servo_center = (servo_max + servo_min) / 2
 servo_offset = servo_max - servo_center
 servo_motor = ServoMotor(tim_num=4, channel=1, frequency=300, pin="P7")
 servo_motor.set_range(max_pw=servo_max, min_pw=servo_min)
 sec = servo_center
 
-enable = 0
+enable = 1
 
 ## Camera Control
 thresholds = (265, 275) #245 to 255
@@ -121,7 +121,8 @@ while(True):
 
     # dynamic ROI, more the wheels are turned, the closer the roi
 
-    if (abs((servo_center - sec)/servo_offset) > .8):
+    instant_change = abs((servo_center - sec)/servo_offset)
+    if (instant_change > .8):
         percent_change += 0.015
     else:
         percent_change -= 0.015
@@ -182,6 +183,18 @@ while(True):
 
     elif (enable == 1):
         dc_motor.forward()
+
+        print(instant_change)
+        if instant_change < .5:
+            straight_counter += 1
+        elif straight_counter > 10:
+            straight_counter = 0
+            brake_counter = 20
+
+        if brake_counter > 0:
+            print("braking")
+            dc_motor.brake_vcc()
+            brake_counter -= 1
 
         dutycyclePW =  max_pwm  - (abs(dist2center/center) * (max_pwm - min_pwm)) #DC
 
