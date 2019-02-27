@@ -187,9 +187,13 @@ while(True):
         print(instant_change)
         if instant_change < .5:
             straight_counter += 1
-        elif straight_counter > 10:
+        elif straight_counter > 30 and instant_change > 0.5:
             straight_counter = 0
             brake_counter = 20
+        else:
+            straight_count = 0
+
+
 
         if brake_counter > 0:
             print("braking")
