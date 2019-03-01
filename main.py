@@ -29,13 +29,13 @@ servo_motor = ServoMotor(tim_num=4, channel=1, frequency=300, pin="P7")
 servo_motor.set_range(max_pw=servo_max, min_pw=servo_min)
 sec = servo_center
 
-enable = 1
+enable = 0
 
 ## Camera Control
 thresholds = (265, 275) #245 to 255
 
-max_roi = 90
-min_roi = 20
+max_roi = 50
+min_roi = 40
 diff_roi = max_roi - min_roi
 percent_change = 0
 
@@ -65,8 +65,8 @@ clock = time.clock()                # Create a clock object to track the FPS.
 Kp_min_s = 1.5 #2.5
 Kp_max_s = 1.5
 Kd_s = 0.025
-max_pwm = 17
-min_pwm = 15
+max_pwm = 20
+min_pwm = 20
 # brake control
 straight_counter = 0
 brake_counter = 0
@@ -140,7 +140,7 @@ while(True):
     center = roi1[2]/2
 
     if (len(blobs1) > 0):
-        if (len(blobs1) == 3 and (abs(blobs1[1].cx() - blobs1[0].cx()) < 40 and abs(blobs1[1].cx() - blobs1[2].cx()) < 40)):
+        if (len(blobs1) == 3 and (abs(blobs1[1].cx() - blobs1[0].cx()) < 30 and abs(blobs1[1].cx() - blobs1[2].cx()) < 30)):
             dc_motor.brake_vcc()
             print("3 lines detected")
             enable = 0
@@ -170,6 +170,7 @@ while(True):
     #PROPORTIONAL
     dist2center = center - x_1
     sec = servo_center + servo_offset*( ((dist2center/center) * (Kp_min_s + (Kp_max_s-Kp_min_s)*percent_change)) + (x_diff1 * Kd_s) )
+    #sec = servo_center
 
     if sec > servo_max :
         sec = servo_max
@@ -184,14 +185,14 @@ while(True):
     elif (enable == 1):
         dc_motor.forward()
 
-        print(instant_change)
-        if instant_change < .5:
-            straight_counter += 1
-        elif straight_counter > 30 and instant_change > 0.5:
-            straight_counter = 0
-            brake_counter = 20
-        else:
-            straight_count = 0
+        #print(instant_change)
+        #if instant_change < .5:
+            #straight_counter += 1
+        #elif straight_counter > 30:
+            #straight_counter = 0
+            #brake_counter = 10
+        #else:
+            #straight_count = 0
 
 
 
