@@ -22,8 +22,8 @@ dutycyclePW = 0
 enable = 0
 
 ## Servo motor control
-servo_max = 0.00183
-servo_min = 0.00102
+servo_max = 0.0019 #turning left
+servo_min = 0.001 #turning right
 servo_center = (servo_max + servo_min) / 2
 servo_offset = servo_max - servo_center
 servo_motor = ServoMotor(tim_num=4, channel=1, frequency=300, pin="P7")
@@ -34,14 +34,9 @@ servo_motor.set_pulse_width(sec)
 ## Camera Control
 thresholds = (255, 255) #245 to 255
 
-max_roi = 70
-min_roi = 20
-diff_roi = max_roi - min_roi
-percent_change = 0
-
-roi1 = (0, 0, 160, 10)
+roi1 = (0, 20, 160, 10)
 roi2 = (0, 0, 160, 10)  ###### note changed to 90
-roi3 = (0, 80, 160, 10)  ###### note changed to 90
+roi3 = (0, 30, 160, 10)  ###### note changed to 90
 
 
 dist = lambda cb,cr: abs(cr-cb)
@@ -71,9 +66,8 @@ clock = time.clock()                # Create a clock object to track the FPS.
 
 ## Control Values
 # PID
-Kp_min_s = 2 #2.5
-Kp_max_s = 2.5
-Kd_s = 0.02
+Kp_min_s = 1.5
+Kd_s = 0.025
 max_pwm = 35
 min_pwm = 25
 
@@ -81,11 +75,6 @@ min_pwm = 25
 turning = 0
 braking = 0
 brake_counter = 0
-
-# manual control
-command_str = "0"
-dc_command = 0
-ser_command = 0.00145 # value for straight
 
 ##### MAIN LOOP #####
 while(True):
@@ -97,11 +86,9 @@ while(True):
         if (cmd == "x"):
             enable = 0
 
-        if (cmd == "Kp_min"):
-            Kp_min_s = value
-        if (cmd == "Kp_max"):
-            Kp_max_s = value
-        if (cmd == "KD"):
+        if (cmd == "Kp"):
+            Kd = value
+        if (cmd == "Kd"):
             Kd_s = value
 
         if (cmd =="max_pwm"):
@@ -109,40 +96,11 @@ while(True):
         if (cmd == "min_pwm"):
             min_pwm = value
 
-        if (cmd == "servo_max"):
-            servo_max = value
-            sec = servo_max
-        if (cmd == "servo_min"):
-            servo_min = value
-            sec = servo_min
-
-        if (cmd == "max_roi"):
-            max_roi = value
-            diff_roi = max_roi - min_roi
-        if (cmd == "min_roi"):
-            min_roi = value
-            diff_roi = max_roi - min_roi
-
     clock.tick()                    # Update the FPS clock.
     img = sensor.snapshot()         # Take a picture and return the image.
 
 
     ##### Blob Detection #####
-
-    # dynamic ROI, more the wheels are turned, the closer the roi
-
-    if (abs((servo_center - sec)/servo_offset) > .8):
-        percent_change += 0.01
-    else:
-        percent_change -= 0.01
-
-    if(percent_change > 1):
-        percent_change = 1
-    if(percent_change < 0):
-        percent_change = 0
-
-    blob_height = int( min_roi + diff_roi * (percent_change) )
-    roi1 = (0, blob_height, 160, 10)
 
     # REGION1
     blobs1 = img.find_blobs([thresholds], roi = roi1, pixels_threshold=10, area_threshold=10)
@@ -151,7 +109,7 @@ while(True):
     if (len(blobs1) > 0):
         if (len(blobs1) == 3 and (abs(blobs1[1].cx() - blobs1[0].cx()) < 30 and abs(blobs1[1].cx() - blobs1[2].cx()) < 30)):
             dc_motor.brake_vcc()
-            #print("3 lines detected")
+            print("3 lines detected")
             enable = 0
         else:
             minblob1 = blobs1[0]
@@ -207,13 +165,20 @@ while(True):
         angle = 0
 
     #PROPORTIONAL
-    dist2center = center - x_1
 
     if (len(blobs1) == 0): #uses the last dist2center if off track to correct
         if(dist2center > 0):
             dist2center = center
         else:
             dist2center = -center
+
+    if(len(blobs1) > 1):
+        dist2center = dist2center
+        dist2center = dist2center
+
+    else:
+        dist2center = center - x_1
+
 
     #DIFFERENTIAL
     for i in range(3):
@@ -254,7 +219,7 @@ while(True):
 
 
     #SERVO MOTOR CONTROL
-    sec = servo_center + servo_offset*( ((dist2center/center) * (Kp_min_s + (Kp_max_s-Kp_min_s)*percent_change)) + (x_diff1 * Kd_s) )
+    sec = servo_center + servo_offset *( (dist2center/center) * (Kp_min_s) + (x_diff1 * Kd_s) )
 
     if sec > servo_max :
         sec = servo_max
