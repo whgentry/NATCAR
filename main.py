@@ -21,8 +21,8 @@ dc_motor.set_current_sense(cs="P6", cs_dis="P9")
 dutycyclePW = 0
 
 ## Servo motor control
-servo_max = 0.00183
-servo_min = 0.00098
+servo_max = 0.0019
+servo_min = 0.0010
 servo_center = (servo_max + servo_min) / 2
 servo_offset = servo_max - servo_center
 servo_motor = ServoMotor(tim_num=4, channel=1, frequency=300, pin="P7")
@@ -62,9 +62,9 @@ clock = time.clock()                # Create a clock object to track the FPS.
 
 ## Control Values
 # PID
-Kp_min_s = 1.5 #2.5
-Kp_max_s = 1.5
-Kd_s = 0.025
+Kp_min_s = 2 #2.5
+Kp_max_s = 2
+Kd_s = 0.02
 max_pwm = 20
 min_pwm = 20
 # brake control
