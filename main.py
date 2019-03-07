@@ -42,8 +42,8 @@ percent_change = 0
 roi1 = (0, 0, 160, 10)
 
 roi_s = 30
-roi_num = 5
-roi_dist = 7
+roi_num = 10
+roi_dist = 3
 roi_array = [(0,roi_s,160,10)] * roi_num
 for i in range(roi_num):
     roi_array[i] = (0,roi_s + roi_dist * i,160,10)
@@ -72,8 +72,8 @@ clock = time.clock()                # Create a clock object to track the FPS.
 
 ## Control Values
 # PID
-Kp_min_s = 1.5 #2.5
-Kp_max_s = 1.5
+Kp_min_s = 2 #2.5
+Kp_max_s = 2
 Kd_s = 0.02
 max_pwm = 25
 min_pwm = 25
@@ -136,63 +136,34 @@ while(True):
 
     clock.tick()                    # Update the FPS clock.
     img = sensor.snapshot()         # Take a picture and return the image.
+    print(clock.fps())
 
 
     ##### Blob Detection #####
-
-    # dynamic ROI, more the wheels are turned, the closer the roi
-
     instant_change = abs((servo_center - sec)/servo_offset)
-    #if (instant_change > .8):
-        #percent_change += 0.015
-    #else:
-        #percent_change -= 0.015
-
-    #if(percent_change > 1):
-        #percent_change = 1
-    #if(percent_change < 0):
-        #percent_change = 0
-
-    #blob_height = int( min_roi + diff_roi * (percent_change) )
-    #roi1 = (0, blob_height, 160, 10)
-
-    ## REGION1
-    #blobs1 = img.find_blobs([thresholds], roi = roi1, pixels_threshold=10, area_threshold=10)
-    #center = roi1[2]/2
-
-    #if (len(blobs1) > 0):
-        #if (len(blobs1) == 3 and (abs(blobs1[1].cx() - blobs1[0].cx()) < 30 and abs(blobs1[1].cx() - blobs1[2].cx()) < 30)):
-            #dc_motor.brake_vcc()
-            #print("3 lines detected")
-            #enable = 0
-        #else:
-            #minblob1 = blobs1[0]
-            #mindist1 = dist(minblob1.cx(),center)
-
-            #for blob in blobs1:
-                #if (dist(blob.cx(), center) < mindist1):
-                    #minblob1 = blob
-
-            #img.draw_rectangle(minblob1.rect(), color = 0)
-            #img.draw_cross(minblob1.cx( ), minblob1.cy(), color = 0)
-            #x_1 = minblob1.cx()
-            #y_1 = minblob1.cy()
-            #rect_1 = minblob1.rect()
 
     # Brake Roi
     for i in range(roi_num):
         blobs = img.find_blobs([thresholds], roi = roi_array[i], pixels_threshold=10, area_threshold=10)
 
         if (len(blobs) > 0):
-            minblob = blobs[0]
-            mindist = dist(minblob.cx(),x_1)
+            if (len(blobs) == 3 and i == int(roi_num/2)):
+                line1_dist = abs(blobs[1].cx() - blobs[0].cx())
+                line2_dist = abs(blobs[1].cx() - blobs[2].cx())
+                if (line1_dist < 30 and line1_dist > 15 and line2_dist < 30 and line2_dist > 15):
+                    print("3 lines detected")
+                    enable = 0
 
-            for blob in blobs:
-                if (dist(blob.cx(), x_1) < mindist):
-                    minblob = blob
+            else:
+                minblob = blobs[0]
+                mindist = dist(minblob.cx(),x_1)
 
-            img.draw_cross(minblob.cx( ), minblob.cy(), color = 0)
-            dist_array[i] = minblob.cx()
+                for blob in blobs:
+                    if (dist(blob.cx(), x_1) < mindist):
+                        minblob = blob
+
+                img.draw_cross(minblob.cx( ), minblob.cy(), color = 0)
+                dist_array[i] = minblob.cx()
 
     x_1 = int(sum(dist_array) / len(dist_array))
     img.draw_cross(x_1, 120, color = 0)
