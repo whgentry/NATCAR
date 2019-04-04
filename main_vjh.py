@@ -28,9 +28,12 @@ servo_offset = servo_max - servo_center
 servo_motor = ServoMotor(tim_num=4, channel=1, frequency=300, pin="P7")
 servo_motor.set_range(max_pw=servo_max, min_pw=servo_min)
 sec = servo_center
+sec_prev = sec
 
 ## Camera Control
 thresholds = (265, 275)
+
+roi_brake = [0, 0, 160, 10];
 
 roi_s = 10 #ROI start point
 roi_num = 10 #Number of ROIs
@@ -62,14 +65,14 @@ clock = time.clock()                # Create a clock object to track the FPS.
 # Motor Control Values
 Kp_s = 1.4
 Kd_s = 0.014
-max_pwm = 35
-min_pwm = 30
+Kp = Kp_s
+Kd = Kd_s
+max_pwm = 45
+min_pwm = 35
 
 # Brake Control
-straight = 0
-straight_counter = 0
 brake_counter = 0
-S = 40
+S = 10
 
 frame_timeout = 1000
 frame_counter = frame_timeout
@@ -135,6 +138,8 @@ while(True):
             img.draw_cross(minblob.cx( ), minblob.cy(), color = 0)
             dist_array[i] = minblob.cx()
 
+    blobs_brake = img.find_blobs([thresholds], roi = roi_brake, pixels_threshold=10, area_threshold=10)
+
     # Average
     x_1 = int(sum(dist_array) / len(dist_array)) #averaging the x positions of the 10 minblobs
     img.draw_cross(x_1, 120, color = 0)
@@ -149,12 +154,6 @@ while(True):
 
     #PROPORTIONAL
     dist2center = center - x_1
-    sec = servo_center + servo_offset*( ((dist2center/center) * (Kp_s)) + (x_diff1 * Kd_s) ) #Servo Turn Magnitude
-
-    if sec > servo_max: #prevent servo motor from overturning
-        sec = servo_max
-    if sec < servo_min:
-        sec = servo_min
 
     #DC MOTOR CONTROL
     if (enable == 0):
@@ -165,24 +164,36 @@ while(True):
     elif (enable == 1):
 
         # Braking Logic
-        if(brake_counter == 0):
-            dc_motor.forward()
+        dc_motor.forward()
+
+        if(len(blobs_brake) != 0):
+            dutycyclePW =  max_pwm  - (abs(dist2center/center) * (max_pwm - min_pwm)) #DC Motor speed
+            Kp = Kp_s
+            Kd = Kd_s
+            brake_counter = S
         else:
-            dc_motor.brake_vcc()
-            brake_counter -= 1
+            if(brake_counter != 0):
+                brake_counter -= 1
+                dc_motor.reverse()
+            else:
+                dc_motor.forward()
+                dutycyclePW =  min_pwm #DC Motor speed
 
-        straight = (abs(dist2center) < S) #deadzone for braking
-        if straight:
-            straight_counter += 1
+            Kp = Kp_s*2.5
+            Kd = Kd_s*2.5
 
-        elif straight_counter > 70: #if we have gone straight long enough i.e. built up speed
-            straight_counter = 0
-            brake_counter = 10
+    #SERVO MOTOR CONTROL
+    sec = servo_center + servo_offset *( ((dist2center/center) * (Kp)) + (x_diff1 * Kd) ) #Servo Turn Magnitude
 
-        else:
-            straight_counter = 0
+    if sec > servo_max: #prevent servo motor from overturning
+        sec = servo_max
+    if sec < servo_min:
+        sec = servo_min
 
-        dutycyclePW =  max_pwm  - (abs(dist2center/center) * (max_pwm - min_pwm)) #DC Motor speed
+    if(abs(sec - sec_prev) < 0.00005):
+        sec = sec_prev
+    else:
+        sec_prev = sec
 
     dc_motor.set_duty_cycle(dutycyclePW)
     servo_motor.set_pulse_width(sec)
