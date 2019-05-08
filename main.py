@@ -32,19 +32,24 @@ sec = servo_center
 enable = 0
 
 ## Camera Control
-thresholds = (265, 275) #245 to 255
+thresholds = (240, 255) #245 to 255
 
-max_roi = 50
-min_roi = 40
-diff_roi = max_roi - min_roi
-percent_change = 0
+roi_far = (0,0,160,10)
 
-roi1 = (0, 0, 160, 10)
-roi2 = (0, 55, 160, 10)  ###### note changed to 90
-roi3= (0, 110, 160, 10)
+roi_s = 30
+roi_num = 10
+roi_dist = 3
+roi_array = [(0,roi_s,160,10)] * roi_num
+for i in range(roi_num):
+    roi_array[i] = (0,roi_s + roi_dist * i,160,10)
+
+dist_array = [0] * roi_num
+center = 80
+
+
 dist = lambda cb,cr: abs(cr-cb)
 pin1 = Pin('P1', Pin.OUT_PP, Pin.PULL_NONE)
-x_1 = 0
+x_1 = 80
 y_1 = 0
 x_diff1 = 0
 x_err1 = [0, 0, 0, 0]
@@ -61,15 +66,29 @@ sensor.set_auto_whitebal(False) # must be turned off for color tracking
 clock = time.clock()                # Create a clock object to track the FPS.
 
 ## Control Values
-# PID
-Kp_min_s = 2 #2.5
-Kp_max_s = 2
-Kd_s = 0.02
-max_pwm = 20
-min_pwm = 20
+# PID#2.5
+Kp_max_s = 2.0
+Kd_s = 0.014
+max_pwm = 35
+min_pwm = 35
 # brake control
 straight_counter = 0
+brake_wait_counter = 0
+brake_wait = 50
 brake_counter = 0
+brake = 10
+turn_thres = 0.5
+straight = 0
+straight_counter = 0
+straight_counter_far = 0
+brake_counter = 0
+brake_counter_far = 0
+S = 40
+
+frame_timeout = 1000
+frame_counter = frame_timeout
+
+no_blob = 0
 
 # manual control
 command_str = "0"
@@ -78,6 +97,7 @@ ser_command = 0.00145 # value for straight
 
 ##### MAIN LOOP #####
 while(True):
+    print(clock.fps())
     if (bt.any()):
         dc_motor.brake_vcc()
         cmd, value = bt.get_cmd_value_blocking()
@@ -86,13 +106,12 @@ while(True):
         if (cmd == "x"):
             enable = 0
 
-        if (cmd == "Kp_min"):
-            Kp_min_s = value
         if (cmd == "Kp_max"):
             Kp_max_s = value
         if (cmd == "KD"):
             Kd_s = value
-
+        if (cmd == "S"):
+            S = value
         if (cmd =="max_pwm"):
             max_pwm = value
         if (cmd == "min_pwm"):
@@ -105,59 +124,50 @@ while(True):
             servo_min = value
             sec = servo_min
 
-        if (cmd == "max_roi"):
-            max_roi = value
-            diff_roi = max_roi - min_roi
-        if (cmd == "min_roi"):
-            min_roi = value
-            diff_roi = max_roi - min_roi
+        if (cmd == "brake_wait"):
+            brake_wait = value
+        if (cmd == "brake"):
+            brake = value
+        if (cmd == "turn_thres"):
+            turn_thres = value
 
 
     clock.tick()                    # Update the FPS clock.
     img = sensor.snapshot()         # Take a picture and return the image.
+    #print(clock.fps())
 
 
     ##### Blob Detection #####
-
-    # dynamic ROI, more the wheels are turned, the closer the roi
-
     instant_change = abs((servo_center - sec)/servo_offset)
-    if (instant_change > .8):
-        percent_change += 0.015
-    else:
-        percent_change -= 0.015
+    if (frame_counter > 0):
+        frame_counter -= 1
+        #print(frame_counter)
 
-    if(percent_change > 1):
-        percent_change = 1
-    if(percent_change < 0):
-        percent_change = 0
+    # Normal Roi
+    for i in range(roi_num):
+        blobs = img.find_blobs([thresholds], roi = roi_array[i], pixels_threshold=10, area_threshold=10)
 
-    blob_height = int( min_roi + diff_roi * (percent_change) )
-    roi1 = (0, blob_height, 160, 10)
+        if (len(blobs) > 0):
+            if (len(blobs) == 3 and i == 0 and frame_counter == 0):
+                line1_dist = abs(blobs[1].cx() - blobs[0].cx())
+                line2_dist = abs(blobs[1].cx() - blobs[2].cx())
+                if (line1_dist < 30 and line1_dist > 10 and line2_dist < 30 and line2_dist > 10):
+                    print(line1_dist)
+                    print("3 lines detected")
+                    enable = 0
 
-    # REGION1
-    blobs1 = img.find_blobs([thresholds], roi = roi1, pixels_threshold=10, area_threshold=10)
-    center = roi1[2]/2
+            minblob = blobs[0]
+            mindist = dist(minblob.cx(),x_1)
 
-    if (len(blobs1) > 0):
-        if (len(blobs1) == 3 and (abs(blobs1[1].cx() - blobs1[0].cx()) < 30 and abs(blobs1[1].cx() - blobs1[2].cx()) < 30)):
-            dc_motor.brake_vcc()
-            print("3 lines detected")
-            enable = 0
-        else:
-            minblob1 = blobs1[0]
-            mindist1 = dist(minblob1.cx(),center)
+            for blob in blobs:
+                if (dist(blob.cx(), x_1) < mindist):
+                    minblob = blob
 
+            img.draw_cross(minblob.cx( ), minblob.cy(), color = 0)
+            dist_array[i] = minblob.cx()
 
-            for blob in blobs1:
-                if (dist(blob.cx(), center) < mindist1):
-                    minblob1 = blob
-
-            img.draw_rectangle(minblob1.rect(), color = 0)
-            img.draw_cross(minblob1.cx( ), minblob1.cy(), color = 0)
-            x_1 = minblob1.cx()
-            y_1 = minblob1.cy()
-            rect_1 = minblob1.rect()
+    x_1 = int(sum(dist_array) / len(dist_array))
+    img.draw_cross(x_1, 120, color = 0)
 
     ##### SERVO MOTOR CONTROL #####
 
@@ -167,9 +177,19 @@ while(True):
     x_err1[3] = center - x_1 #dist2center #changing to dist2center makes it follow derivative of far line in a straight away!!
     x_diff1 = (x_err1[3] - x_err1[0] + (3*x_err1[2]) - (3*x_err1[1]))
 
+
+    #straight kp kd change
+   # if straight_counter_far > 200:
+    #    kd = .01
+    #    kp = 1
+    #else
+     #   kd = kd_s
+      #  kp = Kp_max_s
+        #need to change values below
+
     #PROPORTIONAL
     dist2center = center - x_1
-    sec = servo_center + servo_offset*( ((dist2center/center) * (Kp_min_s + (Kp_max_s-Kp_min_s)*percent_change)) + (x_diff1 * Kd_s) )
+    sec = servo_center + servo_offset*( ((dist2center/center) * (Kp_max_s)) + (x_diff1 * Kd_s) )
     #sec = servo_center
 
     if sec > servo_max :
@@ -179,29 +199,52 @@ while(True):
 
     #DC MOTOR CONTROL
     if (enable == 0):
+        frame_counter = frame_timeout
         servo_motor.set_range(max_pw=servo_max, min_pw=servo_min)
         dc_motor.brake_vcc()
 
     elif (enable == 1):
-        dc_motor.forward()
+        #dc_motor.forward()
 
-        #print(instant_change)
-        #if instant_change < .5:
-            #straight_counter += 1
-        #elif straight_counter > 30:
-            #straight_counter = 0
-            #brake_counter = 10
-        #else:
-            #straight_count = 0
-
-
-
-        if brake_counter > 0:
-            print("braking")
+        #if(brake_counter == 0 and brake_counter_far == 0):
+        if(brake_counter == 0):
+            dc_motor.forward()
+        else:
             dc_motor.brake_vcc()
+
+        if(brake_counter > 0):
             brake_counter -= 1
 
+        #if(brake_counter_far > 0):
+            #brake_counter_far -= 1
+
+        # Close Brake
+        straight = (abs(dist2center) < S )# S = 15 is pretty good...
+        if straight:
+            straight_counter += 1
+        elif straight_counter > 60: #and (str_avg > .85) :
+            straight_counter = 0
+            if brake_counter == 0:
+                brake_counter = 15
+        else:
+            straight_counter = 0
+
+        # Far Brake
+        blobs = img.find_blobs([thresholds], roi = roi_far, pixels_threshold=10, area_threshold=10)
+        if (len(blobs) == 0 and no_blob < 100):
+            no_blob += 1
+        if (len(blobs) > 0):
+            img.draw_cross(blobs[0].cx( ), blobs[0].cy(), color = 0)
+            no_blob = 0
+            straight_counter_far += 1
+        elif no_blob > 5 and straight_counter_far > 200:
+            straight_counter_far = 0
+            brake_counter = 30
+            no_blob = 0
+            print("brake")
+
         dutycyclePW =  max_pwm  - (abs(dist2center/center) * (max_pwm - min_pwm)) #DC
+
 
     dc_motor.set_duty_cycle(dutycyclePW)
     servo_motor.set_pulse_width(sec)
