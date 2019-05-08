@@ -32,16 +32,11 @@ sec = servo_center
 enable = 0
 
 ## Camera Control
-thresholds = (265, 275) #245 to 255
+thresholds = (245, 255) #245 to 255
 
-max_roi = 50
-min_roi = 40
-diff_roi = max_roi - min_roi
-percent_change = 0
+roi_far = (0,5,160,10)
 
-roi1 = (0, 0, 160, 10)
-
-roi_s = 10
+roi_s = 30
 roi_num = 10
 roi_dist = 3
 roi_array = [(0,roi_s,160,10)] * roi_num
@@ -72,7 +67,7 @@ clock = time.clock()                # Create a clock object to track the FPS.
 
 ## Control Values
 # PID#2.5
-Kp_max_s = 1.4
+Kp_max_s = 2.0
 Kd_s = 0.014
 max_pwm = 35
 min_pwm = 35
@@ -85,11 +80,15 @@ brake = 10
 turn_thres = 0.5
 straight = 0
 straight_counter = 0
+straight_counter_far = 0
 brake_counter = 0
+brake_counter_far = 0
 S = 40
 
 frame_timeout = 1000
 frame_counter = frame_timeout
+
+no_blob = 0
 
 # manual control
 command_str = "0"
@@ -124,13 +123,6 @@ while(True):
             servo_min = value
             sec = servo_min
 
-        if (cmd == "max_roi"):
-            max_roi = value
-            diff_roi = max_roi - min_roi
-        if (cmd == "min_roi"):
-            min_roi = value
-            diff_roi = max_roi - min_roi
-
         if (cmd == "brake_wait"):
             brake_wait = value
         if (cmd == "brake"):
@@ -148,9 +140,9 @@ while(True):
     instant_change = abs((servo_center - sec)/servo_offset)
     if (frame_counter > 0):
         frame_counter -= 1
-        print(frame_counter)
+        #print(frame_counter)
 
-    # Brake Roi
+    # Normal Roi
     for i in range(roi_num):
         blobs = img.find_blobs([thresholds], roi = roi_array[i], pixels_threshold=10, area_threshold=10)
 
@@ -175,6 +167,32 @@ while(True):
 
     x_1 = int(sum(dist_array) / len(dist_array))
     img.draw_cross(x_1, 120, color = 0)
+
+    #Brake Roi
+    blobs = img.find_blobs([thresholds], roi = roi_far, pixels_threshold=10, area_threshold=10)
+    #print(len(blobs))
+
+    if (len(blobs) == 0 and no_blob < 100):
+        no_blob += 1
+    if (len(blobs) > 0):
+        img.draw_cross(blobs[0].cx( ), blobs[0].cy(), color = 0)
+        no_blob = 0
+        straight_counter_far += 1
+    elif no_blob > 5 and straight_counter_far > 170:
+        straight_counter_far = 0
+        brake_counter_far = 20
+        no_blob = 0
+        print("brake")
+
+        #minblob = blobs[0]
+        #mindist = dist(minblob.cx(),x_1)
+
+        #for blob in blobs:
+            #if (dist(blob.cx(), x_1) < mindist):
+                #minblob = blob
+
+        #img.draw_cross(minblob.cx( ), minblob.cy(), color = 0)
+
 
     ##### SERVO MOTOR CONTROL #####
 
@@ -203,28 +221,27 @@ while(True):
     elif (enable == 1):
         #dc_motor.forward()
 
-
-        if(brake_counter == 0):
+        if(brake_counter == 0 and brake_counter_far == 0):
             dc_motor.forward()
         else:
             dc_motor.brake_vcc()
+
+        if(brake_counter > 0):
             brake_counter -= 1
+
+        if(brake_counter_far > 0):
+            brake_counter_far -= 1
 
 
         straight = (abs(dist2center) < S )# S = 15 is pretty good...
         if straight:
             straight_counter += 1
-        #hmmm
-
-        elif straight_counter > 70: #and (str_avg > .85) :
+        elif straight_counter > 40: #and (str_avg > .85) :
             straight_counter = 0
             brake_counter = 10
-
         else:
             straight_counter = 0
- #       print(dist2center)
-       # if (abs(dist2center)) > 15:
-        #     dc_motor.brake_vcc()
+
         dutycyclePW =  max_pwm  - (abs(dist2center/center) * (max_pwm - min_pwm)) #DC
 
 
