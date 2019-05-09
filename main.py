@@ -34,7 +34,7 @@ enable = 0
 ## Camera Control
 thresholds = (240, 255) #245 to 255
 
-roi_far = (0,0,160,10)
+roi_far = (0,5,160,10)
 
 roi_s = 30
 roi_num = 10
@@ -68,7 +68,10 @@ clock = time.clock()                # Create a clock object to track the FPS.
 ## Control Values
 # PID#2.5
 Kp_max_s = 2.0
+Kp = Kp_max_s
 Kd_s = 0.014
+Kd = Kd_s
+turbo_pwm = 50
 max_pwm = 35
 min_pwm = 35
 # brake control
@@ -178,18 +181,9 @@ while(True):
     x_diff1 = (x_err1[3] - x_err1[0] + (3*x_err1[2]) - (3*x_err1[1]))
 
 
-    #straight kp kd change
-   # if straight_counter_far > 200:
-    #    kd = .01
-    #    kp = 1
-    #else
-     #   kd = kd_s
-      #  kp = Kp_max_s
-        #need to change values below
-
     #PROPORTIONAL
     dist2center = center - x_1
-    sec = servo_center + servo_offset*( ((dist2center/center) * (Kp_max_s)) + (x_diff1 * Kd_s) )
+    sec = servo_center + servo_offset*( ((dist2center/center) * (Kp)) + (x_diff1 * Kd) )
     #sec = servo_center
 
     if sec > servo_max :
@@ -237,7 +231,7 @@ while(True):
             img.draw_cross(blobs[0].cx( ), blobs[0].cy(), color = 0)
             no_blob = 0
             straight_counter_far += 1
-        elif no_blob > 5 and straight_counter_far > 200:
+        elif no_blob > 3 and straight_counter_far > 50:
             straight_counter_far = 0
             brake_counter = 30
             no_blob = 0
@@ -245,6 +239,14 @@ while(True):
 
         dutycyclePW =  max_pwm  - (abs(dist2center/center) * (max_pwm - min_pwm)) #DC
 
+        # Reduce PD gains if Striaght away and increase pwm
+        if (straight_counter_far > 100):
+            Kp = 1
+            Kd = 0
+            dutycyclePW = turbo_pwm
+        else:
+            Kp = Kp_max_s
+            Kd = Kd_s
 
     dc_motor.set_duty_cycle(dutycyclePW)
     servo_motor.set_pulse_width(sec)
