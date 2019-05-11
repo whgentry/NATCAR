@@ -32,7 +32,7 @@ sec = servo_center
 enable = 0
 
 ## Camera Control
-thresholds = (240, 255) #245 to 255
+thresholds = (245, 255) #245 to 255
 
 roi_far = (0,5,160,10)
 
@@ -61,15 +61,17 @@ sensor.reset()                      # Reset and initialize the sensor.
 sensor.set_pixformat(sensor.GRAYSCALE) # Set pixel format to RGB565 (or GRAYSCALE)
 sensor.set_framesize(sensor.QQVGA)   # Set frame size to QVGA (320x240)
 sensor.skip_frames(time = 2000)     # Wait for settings take effect.
-sensor.set_auto_gain(False) # must be turned off for color tracking
+sensor.set_auto_gain(False, gain_db=9) # must be turned off for color tracking
 sensor.set_auto_whitebal(False) # must be turned off for color tracking
 clock = time.clock()                # Create a clock object to track the FPS.
+
+print(sensor.get_gain_db())
 
 ## Control Values
 # PID#2.5
 Kp_max_s = 2.0
 Kp = Kp_max_s
-Kd_s = 0.014
+Kd_s = 0.012
 Kd = Kd_s
 turbo_pwm = 50
 max_pwm = 35
@@ -101,7 +103,7 @@ ser_command = 0.00145 # value for straight
 
 ##### MAIN LOOP #####
 while(True):
-    print(clock.fps())
+    #print(clock.fps())
     if (bt.any()):
         dc_motor.brake_vcc()
         cmd, value = bt.get_cmd_value_blocking()
@@ -155,7 +157,7 @@ while(True):
             if (len(blobs) == 3 and i == 0 and frame_counter == 0):
                 line1_dist = abs(blobs[1].cx() - blobs[0].cx())
                 line2_dist = abs(blobs[1].cx() - blobs[2].cx())
-                if (line1_dist < 30 and line1_dist > 10 and line2_dist < 30 and line2_dist > 10):
+                if (line1_dist < 40 and line1_dist > 5 and line2_dist < 40 and line2_dist > 5):
                     print(line1_dist)
                     print("3 lines detected")
                     enable = 0
@@ -242,7 +244,7 @@ while(True):
         dutycyclePW =  max_pwm  - (abs(dist2center/center) * (max_pwm - min_pwm)) #DC
 
         #Reduce PD gains if Striaght away and increase pwm
-        if (straight_counter_far > 100 and no_brake > 200):
+        if (straight_counter_far > 75 and no_brake > 200):
             Kp = 1
             Kd = 0
             #dutycyclePW = turbo_pwm
