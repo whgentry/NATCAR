@@ -92,6 +92,7 @@ frame_timeout = 1000
 frame_counter = frame_timeout
 
 no_blob = 0
+no_brake= 0
 
 # manual control
 command_str = "0"
@@ -203,8 +204,10 @@ while(True):
         #if(brake_counter == 0 and brake_counter_far == 0):
         if(brake_counter == 0):
             dc_motor.forward()
+            no_brake += 1
         else:
             dc_motor.brake_vcc()
+            no_brake = 0
 
         if(brake_counter > 0):
             brake_counter -= 1
@@ -218,8 +221,7 @@ while(True):
             straight_counter += 1
         elif straight_counter > 60: #and (str_avg > .85) :
             straight_counter = 0
-            if brake_counter == 0:
-                brake_counter = 15
+            brake_counter = 15
         else:
             straight_counter = 0
 
@@ -228,22 +230,22 @@ while(True):
         if (len(blobs) == 0 and no_blob < 100):
             no_blob += 1
         if (len(blobs) > 0):
-            img.draw_cross(blobs[0].cx( ), blobs[0].cy(), color = 0)
+            img.draw_cross(blobs[0].cx(), blobs[0].cy(), color = 0)
             no_blob = 0
             straight_counter_far += 1
-        elif no_blob > 3 and straight_counter_far > 50:
+        elif no_blob > 3 and straight_counter_far > 100 and no_brake > 200:
             straight_counter_far = 0
-            brake_counter = 30
+            brake_counter = 50
             no_blob = 0
             print("brake")
 
         dutycyclePW =  max_pwm  - (abs(dist2center/center) * (max_pwm - min_pwm)) #DC
 
-        # Reduce PD gains if Striaght away and increase pwm
-        if (straight_counter_far > 100):
+        #Reduce PD gains if Striaght away and increase pwm
+        if (straight_counter_far > 100 and no_brake > 200):
             Kp = 1
             Kd = 0
-            dutycyclePW = turbo_pwm
+            #dutycyclePW = turbo_pwm
         else:
             Kp = Kp_max_s
             Kd = Kd_s
